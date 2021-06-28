@@ -27,7 +27,7 @@ option( TEST_MPFR "Use mpreal from MPFR C++ library (http://www.holoborodko.com/
 #-------------------------------------------------------------------------------
 # Modules
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 #-------------------------------------------------------------------------------
 # Packages
@@ -82,12 +82,11 @@ if( NOT Catch2_FOUND )
       message( FATAL_ERROR "Failed in fetching Catch2 from https://github.com/catchorg/Catch2.git." )
     endif()
 
-    # Hide Catch2_DIR, CATCH_ and FETCHCONTENT_ options
+    # Hide Catch2_DIR and FETCHCONTENT_ options
     mark_as_advanced( FORCE Catch2_DIR )
     get_cmake_property(_variableNames VARIABLES)
     foreach (_variableName ${_variableNames})
-      if( "${_variableName}" MATCHES "^CATCH_" OR
-          "${_variableName}" MATCHES "^FETCHCONTENT_" )
+      if( "${_variableName}" MATCHES "^FETCHCONTENT_" )
         mark_as_advanced( FORCE ${_variableName} )
       endif()
     endforeach()
@@ -97,6 +96,14 @@ if( NOT Catch2_FOUND )
     (1) \"include/catch.hpp\",
  or (2) one of the files: Catch2Config.cmake, catch2-config.cmake." )
   endif()
+
+  # Hide CATCH_ options
+  get_cmake_property(_variableNames VARIABLES)
+  foreach (_variableName ${_variableNames})
+    if( "${_variableName}" MATCHES "^CATCH_" )
+      mark_as_advanced( FORCE ${_variableName} )
+    endif()
+  endforeach()
 
 endif( NOT Catch2_FOUND )
 
@@ -110,6 +117,7 @@ if( TEST_MPFR )
   find_path( MPREAL_PATH
     NAMES mpreal.h
     PATHS ${MPFR_INCLUDES} ${GMP_INCLUDES} )
+  mark_as_advanced( MPREAL_PATH )
   
   # Abort if mpreal.h is not installed
   if( MPREAL_PATH-NOTFOUND )
@@ -134,23 +142,48 @@ COMMAND
 file( GLOB test_sources
   "${CMAKE_CURRENT_SOURCE_DIR}/src/test_*.cpp" )
 
+# #-------------------------------------------------------------------------------
+# # tester: Program for tests
+
+# add_executable( tester tests_main.cpp ${test_sources} )
+
+# target_include_directories( tester PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include" )
+# target_link_libraries( tester PRIVATE Catch2::Catch2 tblas )
+
+# if( TEST_MPFR )
+#   target_compile_definitions( tester PRIVATE USE_MPFR )
+#   target_include_directories( tester PRIVATE ${MPFR_INCLUDES} ${GMP_INCLUDES} )
+#   target_link_libraries( tester PRIVATE ${MPFR_LIBRARIES} ${GMP_LIBRARIES} )
+# endif()
+
+# set_target_properties( tester
+# PROPERTIES
+#   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
+
+#-------------------------------------------------------------------------------
+# testBLAS: Program for tests
+
+add_library( testBLAS ${test_sources} )
+
+target_include_directories( testBLAS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" )
+target_link_libraries( testBLAS PUBLIC Catch2::Catch2 tblas )
+
+if( TEST_MPFR )
+  target_compile_definitions( testBLAS PUBLIC USE_MPFR )
+  target_include_directories( testBLAS PUBLIC ${MPFR_INCLUDES} ${GMP_INCLUDES} )
+  target_link_libraries( testBLAS PUBLIC ${MPFR_LIBRARIES} ${GMP_LIBRARIES} )
+endif()
+
 #-------------------------------------------------------------------------------
 # tester: Program for tests
 
-add_executable( tester tests_main.cpp ${test_sources} )
+add_executable( tester tests_main.cpp )
+target_link_libraries( tester PRIVATE testBLAS )
 
-target_include_directories( tester PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include" )
-target_link_libraries( tester PRIVATE Catch2::Catch2 tblas )
-
-if( TEST_MPFR )
-  target_compile_definitions( tester PRIVATE USE_MPFR )
-  target_include_directories( tester PRIVATE ${MPFR_INCLUDES} ${GMP_INCLUDES} )
-  target_link_libraries( tester PRIVATE ${MPFR_LIBRARIES} ${GMP_LIBRARIES} )
-endif()
-
-set_target_properties( tester
+set_target_properties( testBLAS tester
 PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
+  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" )
 
 # Add tests to CTest
 include(Catch)
