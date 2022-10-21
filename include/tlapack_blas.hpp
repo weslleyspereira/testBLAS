@@ -10,7 +10,7 @@
 #define TLAPACK_SIZE_T std::size_t
 #define TLAPACK_INT_T std::int64_t
 
-#include <tlapack/plugins/legacyArray.hpp>
+// #include <tlapack/plugins/legacyArray.hpp>
 #include <tlapack/legacy_api/blas.hpp>
 
 using idx_t = TLAPACK_SIZE_T;
